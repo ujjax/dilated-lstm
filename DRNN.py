@@ -32,7 +32,7 @@ class DRNNCell(object):
 
 		assert (len(hidden_structs) == len(dilations))
 
-		embeddings = nn.Embedding(vocab_size,self.embedding_dim)
+		self.embeddings = nn.Embedding(vocab_size,self.embedding_dim)
 
 	def _dilation_layer(self,cell,inputs,rate):
 		n_steps = len(inputs)
@@ -77,8 +77,19 @@ class DRNNCell(object):
 
 	    return outputs
 
+	def _reform(self, tensor, input_dim, n_steps):
+
+		tensor = torch.transpose(tensor,1,0)
+		return [t for t in tensor]
+
+
+
 	def forward(self, inputs,dilations):
 		assert (len(self.cells)==len(dilations))
+
+		inputs = self.embeddings(inputs)
+
+		inputs = self._reform(inputs, int(inputs.size()[2]), int(inputs.size()[1]))
 
 		x = copy.copy(inputs)
 
@@ -91,7 +102,7 @@ class DRNNCell(object):
 			W = Variable(torch.randn(hidden_structs[-1],self.n_classes))
 			b = Variable(torch.randn(self.n_classes))
 
-			pred = torch.matmul(layer_outputs[-1], weights) + bias
+			pred = torch.matmul(layer_outputs[-1], W) + b
 
 		else:
 			W = Variable(torch.randn(hidden_structs[-1] * dilations[0], self.n_classes))
@@ -104,8 +115,7 @@ class DRNNCell(object):
 	                hidden_outputs_ = torch.cat(
 	                    [hidden_outputs_, layer_outputs[i]],
 	                    axis=1)
-	        pred = torch.matmul(hidden_outputs_, weights) + bias
-
+	        pred = torch.matmul(hidden_outputs_, W) + b
 	   	return pred
 
 
