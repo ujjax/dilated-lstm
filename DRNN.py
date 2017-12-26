@@ -14,8 +14,7 @@ class DRNNCell(object):
 		self.n_classes = n_classes
 		self.batch_size = batch_size
 		self.num_steps = num_steps
-
-
+		self.vocab_size = vocab_size
 
 		if cell_type not in ["RNN", "LSTM", "GRU"]:
         	raise ValueError("The cell type is not currently supported.") 
@@ -82,9 +81,32 @@ class DRNNCell(object):
 		assert (len(self.cells)==len(dilations))
 
 		x = copy.copy(inputs)
+
 		for cell, dilation in zip(cells, dilations):
 		    x = self._dilation_layer(cell, x, dilation)
-		return x
+		
+		layer_outputs = x
+
+		if dilations[0] ==1:
+			W = Variable(torch.randn(hidden_structs[-1],self.n_classes))
+			b = Variable(torch.randn(self.n_classes))
+
+			pred = torch.matmul(layer_outputs[-1], weights) + bias
+
+		else:
+			W = Variable(torch.randn(hidden_structs[-1] * dilations[0], self.n_classes))
+			b = Variable(torch.randn(self.n_classes))
+
+			for idx, i in enumerate(range(-dilations[0], 0, 1)):
+	            if idx == 0:
+	                hidden_outputs_ = layer_outputs[i]
+	            else:
+	                hidden_outputs_ = torch.cat(
+	                    [hidden_outputs_, layer_outputs[i]],
+	                    axis=1)
+	        pred = torch.matmul(hidden_outputs_, weights) + bias
+
+	   	return pred
 
 
 
