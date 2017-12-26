@@ -9,30 +9,31 @@ import copy
 
 class DRNNCell(object):
 	"""docstring for DRNNCell"""
-	def __init__(self):
+	def __init__(self, n_classes , batch_size, num_steps, vocab_size, embedding_dim, hidden_structure):
 		super(DRNNCell, self).__init__()
 		self.n_classes = n_classes
 		self.batch_size = batch_size
 		self.num_steps = num_steps
 		self.vocab_size = vocab_size
+		self.embedding_dim = embedding_dim
+		self.hidden_structure = hidden_structure
 
-		if cell_type not in ["RNN", "LSTM", "GRU"]:
+		if self.cell_type not in ["RNN", "LSTM", "GRU"]:
         	raise ValueError("The cell type is not currently supported.") 
 		
 		self.cells = []
-		for hidden_dim in hidden_structure:
-			if cell_type = 'RNN':
+		for hidden_dim in self.hidden_structure:
+			if self.cell_type = 'RNN':
 				cell = nn.RNNCell(self.embedding_dim, hidden_dim)
-			if cell_type = 'LSTM':
+			if self.cell_type = 'LSTM':
 				cell = nn.LSTMCell(self.embedding_dim, hidden_dim)
-			if cell_type = 'GRU':
+			if self.cell_type = 'GRU':
 				cell = nn.GRUCell(self.embedding_dim, hidden_dim)
 
 			self.cells.append(cell)
 
-		assert (len(hidden_structs) == len(dilations))
-
-		self.embeddings = nn.Embedding(vocab_size,self.embedding_dim)
+		
+		self.embeddings = nn.Embedding(self.vocab_size,self.embedding_dim)
 
 	def _dilation_layer(self,cell,inputs,rate):
 		n_steps = len(inputs)
@@ -43,15 +44,15 @@ class DRNNCell(object):
         	zero_tensor = torch.zeros_like(inputs[0])
 
         	dilated_n_steps = n_steps // rate + 1
-	        print "=====> %d time points need to be padded. " % (
+	        print "%d time points need to be padded. " % (
 	            dilated_n_steps * rate - n_steps)
-	        print "=====> Input length for sub-RNN: %d" % (dilated_n_steps)
+	        print "Input length for sub-RNN: %d" % (dilated_n_steps)
 	        for i_pad in xrange(dilated_n_steps * rate - n_steps):
 	            inputs.append(zero_tensor)
 
 	    else:
 	        dilated_n_steps = n_steps // rate
-	        print "=====> Input length for sub-RNN: %d" % (dilated_n_steps)
+	        print "Input length for sub-RNN: %d" % (dilated_n_steps)
 
 	    dilated_inputs = [torch.cat(inputs[i*rate : (i + 1)*rate],
                                 dim=0) for i in range(dilated_n_steps)]
@@ -83,9 +84,9 @@ class DRNNCell(object):
 		return [t for t in tensor]
 
 
-
-	def forward(self, inputs,dilations):
-		assert (len(self.cells)==len(dilations))
+	def forward(self, inputs, dilations):
+		assert (len(self.hidden_structure) == len(dilations))	'Length of hidden_structs not equal to length of dilations'
+		assert (len(self.cells)==len(dilations))	'Length of list of cells not equal to lenth of dilations'
 
 		inputs = self.embeddings(inputs)
 
@@ -116,6 +117,7 @@ class DRNNCell(object):
 	                    [hidden_outputs_, layer_outputs[i]],
 	                    axis=1)
 	        pred = torch.matmul(hidden_outputs_, W) + b
+	   	
 	   	return pred
 
 
