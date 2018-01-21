@@ -19,7 +19,7 @@ class DRNNCell(object):
 		self.hidden_structure = hidden_structure
 
 		if self.cell_type not in ["RNN", "LSTM", "GRU"]:
-        	raise ValueError("The cell type is not currently supported.") 
+        		raise ValueError("The cell type is not currently supported.") 
 		
 		self.cells = []
 		for hidden_dim in self.hidden_structure:
@@ -36,11 +36,11 @@ class DRNNCell(object):
 		self.embeddings = nn.Embedding(self.vocab_size,self.embedding_dim)
 
 	def _dilation_layer(self,cell,inputs,rate):
-		n_steps = len(inputs)
-		if rate < 0 or rate >= n_steps:
-        	raise ValueError('The rate variable needs to be adjusted.')
+	    n_steps = len(inputs)
+	    if rate < 0 or rate >= n_steps:
+            	raise ValueError('The rate variable needs to be adjusted.')
 
-        if not (n_steps % rate) == 0:
+            if not (n_steps % rate) == 0:
         	zero_tensor = torch.zeros_like(inputs[0])
 
         	dilated_n_steps = n_steps // rate + 1
@@ -119,7 +119,6 @@ class DRNNCell(object):
 	        pred = torch.matmul(hidden_outputs_, W) + b
 	   	
 	   	return pred
-
 
 
 
