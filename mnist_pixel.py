@@ -1,5 +1,3 @@
-
-# coding: utf-8
 from __future__ import print_function
 
 import torch
@@ -66,10 +64,7 @@ test_loader = torch.utils.data.DataLoader(
 
 model = Model(hidden_structs, dilations, num_steps, n_classes , batch_size , cell_type)
 
-
-#model = Net()
-
-print(list(model.parameters()),']]]]]]]]]]]]]')
+print(list(model.parameters()))
 
 
 if is_cuda:
