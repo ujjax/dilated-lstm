@@ -4,122 +4,108 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
-import copy
+
+import numpy as np 
 
 
-class DRNNCell(object):
-	"""docstring for DRNNCell"""
-	def __init__(self, n_classes , batch_size, num_steps, vocab_size, embedding_dim, hidden_structure):
-		super(DRNNCell, self).__init__()
+
+def dilation_layer(cell,inputs,rate, batch_size):
+	n_steps = len(inputs)
+	if rate < 0 or rate >= n_steps:
+		raise ValueError('The rate variable needs to be adjusted.')
+
+	if not (n_steps % rate) == 0:
+		zero_tensor = torch.zeros_like(inputs[0])
+
+		dilated_n_steps = n_steps // rate + 1
+		print("Input length for sub-RNN: %d" % (dilated_n_steps))
+
+		for i_pad in xrange(dilated_n_steps * rate - n_steps):
+			inputs.append(zero_tensor)
+
+	else:
+		dilated_n_steps = n_steps // rate
+		print("Input length for sub-RNN: %d" % (dilated_n_steps))
+
+	dilated_inputs = [torch.cat(torch.split(inputs[i*rate : (i + 1)*rate],rate,dim=0),dim=0) for i in range(dilated_n_steps)]
+
+	dilated_outputs = []
+
+	hx = Variable(torch.randn(batch_size, cell.hidden_size))
+	cx = Variable(torch.randn(batch_size, cell.hidden_size))
+
+	state = (cx,hx)
+
+
+	for i in range(dilated_n_steps):
+		print(dilated_inputs[i].size())
+		dilated_output , state = cell(dilated_inputs[i],state)
+		dilated_outputs.append(dilated_output)
+
+	splitted_outputs = [torch.split(output, rate, dim=0)
+					for output in dilated_outputs]
+
+	unrolled_outputs = [output
+					for sublist in splitted_outputs for output in sublist]
+	# remove padded zeros
+	outputs = unrolled_outputs[:n_steps]
+
+	return outputs
+
+
+class Model(nn.Module):
+	def __init__(self, hidden_structure, dilations, num_steps, n_classes, batch_size, cell_type):
+		super(Model, self).__init__()
 		self.n_classes = n_classes
 		self.batch_size = batch_size
 		self.num_steps = num_steps
-		self.vocab_size = vocab_size
-		self.embedding_dim = embedding_dim
+		self.dilations = dilations
 		self.hidden_structure = hidden_structure
-
-		if self.cell_type not in ["RNN", "LSTM", "GRU"]:
-        		raise ValueError("The cell type is not currently supported.") 
+		self.embedding_dim = 1
+		self.cell_type = cell_type
 		
 		self.cells = []
+
+
 		for hidden_dim in self.hidden_structure:
-			if self.cell_type = 'RNN':
+			if self.cell_type == 'RNN':
 				cell = nn.RNNCell(self.embedding_dim, hidden_dim)
-			if self.cell_type = 'LSTM':
+			if self.cell_type == 'LSTM':
 				cell = nn.LSTMCell(self.embedding_dim, hidden_dim)
-			if self.cell_type = 'GRU':
+			if self.cell_type == 'GRU':
 				cell = nn.GRUCell(self.embedding_dim, hidden_dim)
 
 			self.cells.append(cell)
 
-		
-		self.embeddings = nn.Embedding(self.vocab_size,self.embedding_dim)
 
-	def _dilation_layer(self,cell,inputs,rate):
-	    n_steps = len(inputs)
-	    if rate < 0 or rate >= n_steps:
-            	raise ValueError('The rate variable needs to be adjusted.')
+	def forward(self, x):
+		assert (len(self.hidden_structure) == len(self.dilations))	
+		assert (len(self.cells)==len(self.dilations))
 
-            if not (n_steps % rate) == 0:
-        	zero_tensor = torch.zeros_like(inputs[0])
-
-        	dilated_n_steps = n_steps // rate + 1
-	        print "%d time points need to be padded. " % (
-	            dilated_n_steps * rate - n_steps)
-	        print "Input length for sub-RNN: %d" % (dilated_n_steps)
-	        for i_pad in xrange(dilated_n_steps * rate - n_steps):
-	            inputs.append(zero_tensor)
-
-	    else:
-	        dilated_n_steps = n_steps // rate
-	        print "Input length for sub-RNN: %d" % (dilated_n_steps)
-
-	    dilated_inputs = [torch.cat(inputs[i*rate : (i + 1)*rate],
-                                dim=0) for i in range(dilated_n_steps)]
-
-	    dilated_outputs = []
-
-	    hx = Variable(torch.randn(self.batch_size, self.hidden_dim))
-		cx = Variable(torch.randn(self.batch_size, self.hidden_dim))
-
-		state = (cx,hx)
-
-	    for i in range(dilated_n_steps):
-	    	dilated_output , state = cell(dilated_inputs[i],state)
-	    	dilated_outputs.append(dilated_output)
-
-	    splitted_outputs = [torch.split(output, rate, dim=0)
-                        for output in dilated_outputs]
-
-	    unrolled_outputs = [output
-                        for sublist in splitted_outputs for output in sublist]
-	    # remove padded zeros
-	    outputs = unrolled_outputs[:n_steps]
-
-	    return outputs
-
-	def _reform(self, tensor, input_dim, n_steps):
-
-		tensor = torch.transpose(tensor,1,0)
-		return [t for t in tensor]
-
-
-	def forward(self, inputs, dilations):
-		assert (len(self.hidden_structure) == len(dilations))	'Length of hidden_structs not equal to length of dilations'
-		assert (len(self.cells)==len(dilations))	'Length of list of cells not equal to lenth of dilations'
-
-		inputs = self.embeddings(inputs)
-
-		inputs = self._reform(inputs, int(inputs.size()[2]), int(inputs.size()[1]))
-
-		x = copy.copy(inputs)
-
-		for cell, dilation in zip(cells, dilations):
-		    x = self._dilation_layer(cell, x, dilation)
-		
-		layer_outputs = x
-
-		if dilations[0] ==1:
-			W = Variable(torch.randn(hidden_structs[-1],self.n_classes))
+		for cell, rate in zip(self.cells, self.dilations):
+			x = dilation_layer(cell, x, rate, self.batch_size)
+			
+			
+		if self.dilations[0] ==1:
+			W = Variable(torch.randn(self.hidden_structure[-1], self.n_classes))
 			b = Variable(torch.randn(self.n_classes))
 
-			pred = torch.matmul(layer_outputs[-1], W) + b
+			x = torch.matmul(x[-1], W) + b
 
 		else:
-			W = Variable(torch.randn(hidden_structs[-1] * dilations[0], self.n_classes))
+			W = Variable(torch.randn(self.hidden_structure[-1] * self.dilations[0], self.n_classes))
 			b = Variable(torch.randn(self.n_classes))
 
-			for idx, i in enumerate(range(-dilations[0], 0, 1)):
-	            if idx == 0:
-	                hidden_outputs_ = layer_outputs[i]
-	            else:
-	                hidden_outputs_ = torch.cat(
-	                    [hidden_outputs_, layer_outputs[i]],
-	                    axis=1)
-	        pred = torch.matmul(hidden_outputs_, W) + b
-	   	
-	   	return pred
-
+			for idx, i in enumerate(range(-self.dilations[0], 0, 1)):
+				if idx == 0:
+					hidden_outputs_ = x[i]
+				else:
+					hidden_outputs_ = torch.cat(
+						[hidden_outputs_, x[i]],
+						axis=1)
+			x = torch.matmul(hidden_outputs_, W) + b
+		
+		return x
 
 
 
