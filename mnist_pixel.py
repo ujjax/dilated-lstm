@@ -74,17 +74,15 @@ if is_cuda:
 
 
 import sys
+
 def train(epoch):
 	model.train()
 	for batch_idx, (data, target) in enumerate(train_loader):
-		
-		data = data.view(batch_size,-1)
+		data = data.squeeze(1).view(batch_size,-1)
 		print(data.size())
 		data = data[:,idx_permute]
 		data = data.view([batch_size ,num_steps, input_dims])
 		
-
-
 		if is_cuda:
 			data, target = data.cuda(), target.cuda()
 		data, target = Variable(data), Variable(target)
