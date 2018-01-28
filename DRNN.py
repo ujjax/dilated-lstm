@@ -56,7 +56,6 @@ class Model(nn.Module):
 		self.num_steps = num_steps
 		self.dilations = dilations
 		self.hidden_structure = hidden_structure
-		self.embedding_dim = 1
 		self.cell_type = cell_type
 		
 		self.cells = []
