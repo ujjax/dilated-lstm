@@ -9,7 +9,7 @@ import numpy as np
 
 
 
-def dilation_layer(cell,inputs,rate, batch_size):
+def dilation_layer(cell,inputs,rate, batch_size, state):
 	n_steps = len(inputs)
 	if rate < 0 or rate >= n_steps:
 		raise ValueError('The rate variable needs to be adjusted.')
@@ -31,11 +31,6 @@ def dilation_layer(cell,inputs,rate, batch_size):
 
 	dilated_outputs = []
 
-	hx = Variable(torch.randn(batch_size, cell.hidden_size))
-	cx = Variable(torch.randn(batch_size, cell.hidden_size))
-
-	state = (cx,hx)
-
 
 	for i in range(dilated_n_steps):
 		print(dilated_inputs[i].size())
@@ -50,7 +45,7 @@ def dilation_layer(cell,inputs,rate, batch_size):
 	# remove padded zeros
 	outputs = unrolled_outputs[:n_steps]
 
-	return outputs
+	return outputs, state
 
 
 class Model(nn.Module):
@@ -77,24 +72,23 @@ class Model(nn.Module):
 
 			self.cells.append(cell)
 
-
-	def forward(self, x):
+	def forward(self, x, state,W,b):
 		assert (len(self.hidden_structure) == len(self.dilations))	
 		assert (len(self.cells)==len(self.dilations))
 
 		for cell, rate in zip(self.cells, self.dilations):
-			x = dilation_layer(cell, x, rate, self.batch_size)
+			x, state = dilation_layer(cell, x, rate, self.batch_size, state)
 			
 			
 		if self.dilations[0] ==1:
-			W = Variable(torch.randn(self.hidden_structure[-1], self.n_classes))
-			b = Variable(torch.randn(self.n_classes))
+			#W = Variable(torch.randn(self.hidden_structure[-1], self.n_classes))
+			#b = Variable(torch.randn(self.n_classes))
 
 			x = torch.matmul(x[-1], W) + b
 
 		else:
-			W = Variable(torch.randn(self.hidden_structure[-1] * self.dilations[0], self.n_classes))
-			b = Variable(torch.randn(self.n_classes))
+			#W = Variable(torch.randn(self.hidden_structure[-1] * self.dilations[0], self.n_classes))
+			#b = Variable(torch.randn(self.n_classes))
 
 			for idx, i in enumerate(range(-self.dilations[0], 0, 1)):
 				if idx == 0:
@@ -107,5 +101,15 @@ class Model(nn.Module):
 		
 		return x
 
+	def initHidden(self):
+		hx = Variable(torch.randn(self.batch_size, self.hidden_structure[0]))
+		cx = Variable(torch.randn(self.batch_size, self.hidden_structure[0]))
+
+		state = (cx.cuda(),hx.cuda())
+
+		W = Variable(torch.randn(self.hidden_structure[-1] * self.dilations[0], self.n_classes))
+		b = Variable(torch.randn(self.n_classes))
 
 
+
+		return state , W.cuda(), b.cuda()
