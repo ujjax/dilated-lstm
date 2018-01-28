@@ -1,9 +1,11 @@
+# coding: utf-8
 from __future__ import print_function
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+
 from torchvision import datasets, transforms
 from torch.autograd import Variable
 
@@ -44,7 +46,6 @@ else:
 	idx_permute = np.random.permutation(num_steps)
 
 
-
 kwargs = {'num_workers': 1, 'pin_memory': True} if is_cuda else {}
 
 train_loader = torch.utils.data.DataLoader(
@@ -64,22 +65,20 @@ test_loader = torch.utils.data.DataLoader(
 
 model = Model(hidden_structs, dilations, num_steps, n_classes , batch_size , cell_type)
 
-print(list(model.parameters()))
 
+print(list(model.parameters()))
 
 if is_cuda:
 	model.cuda()
 
-#optimizer = optim.RMSprop(model.parameters(), lr= learning_rate, alpha=0.9, eps=1e-08, weight_decay=0, momentum=0, centered=False)
-
+optimizer = optim.RMSprop(model.parameters(), lr= learning_rate, alpha=0.9, eps=1e-08, weight_decay=0, momentum=0, centered=False)
 
 import sys
-
 def train(epoch):
 	model.train()
 	for batch_idx, (data, target) in enumerate(train_loader):
+		state, W,b = model.initHidden()
 		data = data.squeeze(1).view(batch_size,-1)
-		print(data.size())
 		data = data[:,idx_permute]
 		data = data.view([batch_size ,num_steps, input_dims])
 		
@@ -87,7 +86,7 @@ def train(epoch):
 			data, target = data.cuda(), target.cuda()
 		data, target = Variable(data), Variable(target)
 		#optimizer.zero_grad()
-		output = model(data)
+		output = model(data, state,W,b)
 		loss = nn.MultiLabelSoftMarginLoss(output, target)
 		loss.backward()
 		optimizer.step()
@@ -95,7 +94,7 @@ def train(epoch):
 			print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
 				epoch, batch_idx * len(data), len(train_loader.dataset),
 				100. * batch_idx / len(train_loader), loss.data[0]))
-
+"""
 def evaluate():
 	model.eval()
 	test_loss = 0
@@ -114,7 +113,7 @@ def evaluate():
 		test_loss, correct, len(test_loader.dataset),
 		100. * correct / len(test_loader.dataset)))
 	
-
+"""
 for epoch in range(1, epochs + 1):
 	train(epoch)
 	test()
