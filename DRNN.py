@@ -57,8 +57,8 @@ class Model(nn.Module):
 		self.dilations = dilations
 		self.hidden_structure = hidden_structure
 		self.cell_type = cell_type
-		
-		self.cells = []
+		self.embedding_dim =1
+		self.cells = nn.ModuleList([])
 
 
 		for hidden_dim in self.hidden_structure:
@@ -108,7 +108,5 @@ class Model(nn.Module):
 
 		W = Variable(torch.randn(self.hidden_structure[-1] * self.dilations[0], self.n_classes))
 		b = Variable(torch.randn(self.n_classes))
-
-
-
+		
 		return state , W.cuda(), b.cuda()
